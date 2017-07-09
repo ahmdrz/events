@@ -32,7 +32,7 @@ func TestSubscribe(t *testing.T) {
 
 	Publish("user/test", 10)
 
-	Wait("user/test")
+	Close("user/test")
 
 	if !done {
 		t.Fail()
@@ -54,10 +54,28 @@ func TestMultiEvents(t *testing.T) {
 	Publish("user/login", "ahmdrz")
 	Publish("user/logout", "ahmdrz")
 
-	Wait("user/login")
-	Wait("user/logout")
+	Close("user/login")
+	Close("user/logout")
 
 	if numbers != 2 {
 		t.Fatal("one of subscribers not loaded")
+	}
+}
+
+func TestConcurrentPublishers(t *testing.T) {
+	numbers := 0
+	Subscribe("user:number", func(v interface{}, _t time.Time) {
+		numbers++
+	})
+
+	for i := 0; i < 100; i++ {
+		go Publish("user:number", i)
+	}
+
+	Wait("user:number")
+
+	t.Log(numbers, 100)
+	if numbers != 100 {
+		t.Fail()
 	}
 }
