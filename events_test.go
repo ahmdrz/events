@@ -38,3 +38,26 @@ func TestSubscribe(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestMultiEvents(t *testing.T) {
+	numbers := 0
+	Subscribe("user/login", func(v interface{}, _t time.Time) {
+		t.Log("user logged in", v, _t)
+		numbers++
+	})
+
+	Subscribe("user/logout", func(v interface{}, _t time.Time) {
+		t.Log("user logged out", v, _t)
+		numbers++
+	})
+
+	Publish("user/login", "ahmdrz")
+	Publish("user/logout", "ahmdrz")
+
+	Wait("user/login")
+	Wait("user/logout")
+
+	if numbers != 2 {
+		t.Fatal("one of subscribers not loaded")
+	}
+}
