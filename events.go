@@ -50,15 +50,18 @@ func (r *RoutineController) WaitFinish() {
 }
 
 func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{}) {
+	waitForFinish := make(chan bool)
 	atomic.AddInt32(&wl.runningHandlers, 1)
 	go func() {
 		defer func() {
 			recover()
 			atomic.AddInt32(&wl.runningHandlers, -1)
 			wg.Done()
+			waitForFinish <- true
 		}()
 		h(value, time.Now())
 	}()
+	<-waitForFinish
 }
 
 func init() {
