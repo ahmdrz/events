@@ -135,3 +135,14 @@ func TestConcurrentPublishers(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestUnSubscribe(t *testing.T) {
+	f := func(v interface{}, _t time.Time) {
+		t.Log("receive", v)
+	}
+	Subscribe("user:number", f)
+	Publish("user:number", 10)
+	if err := UnSubscribe("user:number", f); err != nil {
+		t.Fail()
+	}
+}

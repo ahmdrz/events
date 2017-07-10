@@ -2,6 +2,7 @@ package events
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,18 +51,13 @@ func (r *RoutineController) WaitFinish() {
 }
 
 func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{}) {
-	waitForFinish := make(chan bool)
 	atomic.AddInt32(&wl.runningHandlers, 1)
-	go func() {
-		defer func() {
-			recover()
-			atomic.AddInt32(&wl.runningHandlers, -1)
-			wg.Done()
-			waitForFinish <- true
-		}()
-		h(value, time.Now())
+	defer func() {
+		recover()
+		atomic.AddInt32(&wl.runningHandlers, -1)
+		wg.Done()
 	}()
-	<-waitForFinish
+	h(value, time.Now())
 }
 
 func init() {
@@ -112,6 +108,34 @@ func Subscribe(name string, h handler) {
 	topic.list[name] = waitList{
 		handlers: _handlers,
 	}
+}
+
+// UnSubscribe : unsubscribe('user:login')
+func UnSubscribe(name string, h handler) error {
+	topic.Lock()
+	defer topic.Unlock()
+
+	_handlers := make(handlers, 0)
+	_, ok := topic.list[name]
+	if ok {
+		_handlers = topic.list[name].handlers
+	}
+	address := reflect.ValueOf(h).Pointer()
+	index := -1
+	for i := range _handlers {
+		if reflect.ValueOf(_handlers[i]).Pointer() == address {
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return errors.New("Handler not found")
+	}
+	_handlers = append(_handlers[:index], _handlers[index+1:]...)
+	topic.list[name] = waitList{
+		handlers: _handlers,
+	}
+	return nil
 }
 
 // Wait : wait for topic messages
