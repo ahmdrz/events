@@ -1,9 +1,14 @@
 package events
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().Unix())
+}
 
 func TestPublish(t *testing.T) {
 	var published bool
@@ -62,20 +67,71 @@ func TestMultiEvents(t *testing.T) {
 	}
 }
 
-func TestConcurrentPublishers(t *testing.T) {
-	var numbers int32
+func TestPublishers(t *testing.T) {
+	testCasesLength := 100 + rand.Intn(200)
+	var numbers int
 	Subscribe("user:number", func(v interface{}, _t time.Time) {
 		numbers++
 	})
-	c := NewRoutineController("user:number")
-	c.AddRoutine(1000)
-	for i := 0; i < 1000; i++ {
-		go c.PublishRoutine("user:number", i)
-	}
-	c.WaitFinish()
 
-	t.Log(numbers, 1000)
-	if numbers != 1000 {
+	for i := 0; i < testCasesLength; i++ {
+		Publish("user:number", i)
+	}
+
+	Wait("user:number")
+
+	Close("user:number")
+
+	t.Log(numbers, testCasesLength)
+	if numbers != testCasesLength {
+		t.Fail()
+	}
+}
+
+func TestSubscribers(t *testing.T) {
+	testCasesLength := 100 + rand.Intn(200)
+	var numbers int
+
+	for i := 0; i < testCasesLength; i++ {
+		Subscribe("user:number", func(v interface{}, _t time.Time) {
+			numbers++
+		})
+	}
+
+	if len(topic.list["user:number"].handlers) != testCasesLength {
+		t.Log("handlers problem")
+		t.Fail()
+	}
+
+	Publish("user:number", 1)
+
+	Wait("user:number")
+
+	Close("user:number")
+
+	t.Log(numbers, testCasesLength)
+	if numbers != testCasesLength {
+		t.Fail()
+	}
+}
+
+func TestConcurrentPublishers(t *testing.T) {
+	testCasesLength := 100 + rand.Intn(200)
+	var numbers int
+	Subscribe("user:number", func(v interface{}, _t time.Time) {
+		numbers++
+	})
+
+	for i := 0; i < testCasesLength; i++ {
+		go Publish("user:number", i)
+	}
+
+	Wait("user:number")
+
+	Close("user:number")
+
+	t.Log(numbers, testCasesLength)
+	if numbers != testCasesLength {
 		t.Fail()
 	}
 }

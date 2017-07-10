@@ -40,9 +40,11 @@ func (r *RoutineController) PublishRoutine(name string, value interface{}) bool 
 	ext := Publish(name, value)
 	return ext
 }
+
 func (r *RoutineController) AddRoutine(delta int) {
 	r.group.Add(delta)
 }
+
 func (r *RoutineController) WaitFinish() {
 	r.group.Wait()
 }
@@ -50,8 +52,6 @@ func (r *RoutineController) WaitFinish() {
 func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{}) {
 	atomic.AddInt32(&wl.runningHandlers, 1)
 	go func() {
-		topic.Lock()
-		defer topic.Unlock()
 		defer func() {
 			recover()
 			atomic.AddInt32(&wl.runningHandlers, -1)
@@ -78,6 +78,9 @@ func Close(name string) error {
 
 // Publish : publish('user:login',0)
 func Publish(name string, value interface{}) bool {
+	topic.Lock()
+	defer topic.Unlock()
+
 	h, ok := topic.list[name]
 	if !ok {
 		return false
@@ -96,6 +99,7 @@ func Publish(name string, value interface{}) bool {
 func Subscribe(name string, h handler) {
 	topic.Lock()
 	defer topic.Unlock()
+
 	_handlers := make(handlers, 0)
 	_, ok := topic.list[name]
 	if ok {
