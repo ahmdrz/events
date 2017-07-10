@@ -63,19 +63,19 @@ func TestMultiEvents(t *testing.T) {
 }
 
 func TestConcurrentPublishers(t *testing.T) {
-	numbers := 0
+	var numbers int32
 	Subscribe("user:number", func(v interface{}, _t time.Time) {
 		numbers++
 	})
-
-	for i := 0; i < 100; i++ {
-		go Publish("user:number", i)
+	c := NewRountineControler("user:number")
+	c.AddRoutine(1000)
+	for i := 0; i < 1000; i++ {
+		go c.PublishRoutine("user:number", i)
 	}
+	c.WaitFinish()
 
-	Wait("user:number")
-
-	t.Log(numbers, 100)
-	if numbers != 100 {
+	t.Log(numbers, 1000)
+	if numbers != 1000 {
 		t.Fail()
 	}
 }

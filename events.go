@@ -17,19 +17,42 @@ type waitList struct {
 	handlers        handlers
 	runningHandlers int32
 }
+type RoutineControler struct {
+	group sync.WaitGroup
+	name  string
+}
 
 var topic struct {
 	sync.Mutex
 	list map[string]waitList
 }
 
-func execHandler(wl *waitList, h handler, value interface{}) {
+func NewRountineControler(name string) *RoutineControler {
+	return &RoutineControler{name: name, group: sync.WaitGroup{}}
+}
+func (r *RoutineControler) PublishRoutine(name string, value interface{}) bool {
+	defer r.group.Done()
+	if r.name != name {
+		return false
+	}
+	ext := Publish(name, value)
+	return ext
+}
+func (r *RoutineControler) AddRoutine(delta int) {
+	r.group.Add(delta)
+}
+func (r *RoutineControler) WaitFinish() {
+	r.group.Wait()
+}
+func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{}) {
 	atomic.AddInt32(&wl.runningHandlers, 1)
 	go func() {
+		topic.Lock()
+		defer topic.Unlock()
 		defer func() {
 			recover()
 			atomic.AddInt32(&wl.runningHandlers, -1)
-			wl.wait.Done()
+			wg.Done()
 		}()
 		h(value, time.Now())
 	}()
@@ -57,12 +80,12 @@ func Publish(name string, value interface{}) bool {
 		return false
 	}
 	atomic.AddInt32(&h.runningHandlers, 1)
-	h.wait = sync.WaitGroup{}
+	wait := sync.WaitGroup{}
 	for _, handler := range h.handlers {
-		h.wait.Add(1)
-		execHandler(&h, handler, value)
+		wait.Add(1)
+		execHandler(&h, &wait, handler, value)
 	}
-	h.wait.Wait()
+	wait.Wait()
 	return true
 }
 
