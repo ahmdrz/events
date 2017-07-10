@@ -67,7 +67,7 @@ func TestConcurrentPublishers(t *testing.T) {
 	Subscribe("user:number", func(v interface{}, _t time.Time) {
 		numbers++
 	})
-	c := NewRountineControler("user:number")
+	c := NewRoutineController("user:number")
 	c.AddRoutine(1000)
 	for i := 0; i < 1000; i++ {
 		go c.PublishRoutine("user:number", i)

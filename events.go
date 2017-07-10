@@ -17,7 +17,8 @@ type waitList struct {
 	handlers        handlers
 	runningHandlers int32
 }
-type RoutineControler struct {
+
+type RoutineController struct {
 	group sync.WaitGroup
 	name  string
 }
@@ -27,10 +28,11 @@ var topic struct {
 	list map[string]waitList
 }
 
-func NewRountineControler(name string) *RoutineControler {
-	return &RoutineControler{name: name, group: sync.WaitGroup{}}
+func NewRoutineController(name string) *RoutineController {
+	return &RoutineController{name: name, group: sync.WaitGroup{}}
 }
-func (r *RoutineControler) PublishRoutine(name string, value interface{}) bool {
+
+func (r *RoutineController) PublishRoutine(name string, value interface{}) bool {
 	defer r.group.Done()
 	if r.name != name {
 		return false
@@ -38,12 +40,13 @@ func (r *RoutineControler) PublishRoutine(name string, value interface{}) bool {
 	ext := Publish(name, value)
 	return ext
 }
-func (r *RoutineControler) AddRoutine(delta int) {
+func (r *RoutineController) AddRoutine(delta int) {
 	r.group.Add(delta)
 }
-func (r *RoutineControler) WaitFinish() {
+func (r *RoutineController) WaitFinish() {
 	r.group.Wait()
 }
+
 func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{}) {
 	atomic.AddInt32(&wl.runningHandlers, 1)
 	go func() {
@@ -104,6 +107,7 @@ func Subscribe(name string, h handler) {
 	}
 }
 
+// Wait : wait for topic messages
 func Wait(name string) {
 	h, ok := topic.list[name]
 	if !ok {
