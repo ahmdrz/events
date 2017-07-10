@@ -17,34 +17,23 @@ type waitList struct {
 	handlers        handlers
 	runningHandlers int32
 }
-type RoutineControler struct {
+
+type RoutineController struct {
 	group sync.WaitGroup
-	name  string
 }
+
+func (r *RoutineController) AddRoutine(delta int) {
+	r.group.Add(delta)
+}
+
+var routines RoutineController
 
 var topic struct {
 	sync.Mutex
 	list map[string]waitList
 }
 
-func NewRountineControler(name string) *RoutineControler {
-	return &RoutineControler{name: name, group: sync.WaitGroup{}}
-}
-func (r *RoutineControler) PublishRoutine(name string, value interface{}) bool {
-	defer r.group.Done()
-	if r.name != name {
-		return false
-	}
-	ext := Publish(name, value)
-	return ext
-}
-func (r *RoutineControler) AddRoutine(delta int) {
-	r.group.Add(delta)
-}
-func (r *RoutineControler) WaitFinish() {
-	r.group.Wait()
-}
-func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{}) {
+func execHandler(wl *waitList, h handler, value interface{}) {
 	atomic.AddInt32(&wl.runningHandlers, 1)
 	go func() {
 		topic.Lock()
@@ -52,7 +41,7 @@ func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{})
 		defer func() {
 			recover()
 			atomic.AddInt32(&wl.runningHandlers, -1)
-			wg.Done()
+			wl.wait.Done()
 		}()
 		h(value, time.Now())
 	}()
@@ -60,6 +49,7 @@ func execHandler(wl *waitList, wg *sync.WaitGroup, h handler, value interface{})
 
 func init() {
 	topic.list = make(map[string]waitList)
+	routines.group = sync.WaitGroup{}
 }
 
 // Close : close('user:login')
@@ -75,17 +65,18 @@ func Close(name string) error {
 
 // Publish : publish('user:login',0)
 func Publish(name string, value interface{}) bool {
+	defer routines.group.Done()
 	h, ok := topic.list[name]
 	if !ok {
 		return false
 	}
 	atomic.AddInt32(&h.runningHandlers, 1)
-	wait := sync.WaitGroup{}
+	h.wait = sync.WaitGroup{}
 	for _, handler := range h.handlers {
-		wait.Add(1)
-		execHandler(&h, &wait, handler, value)
+		h.wait.Add(1)
+		execHandler(&h, handler, value)
 	}
-	wait.Wait()
+	h.wait.Wait()
 	return true
 }
 
@@ -109,6 +100,7 @@ func Wait(name string) {
 	if !ok {
 		return
 	}
+	routines.group.Wait()
 	for atomic.LoadInt32(&h.runningHandlers) != 0 {
 	}
 }
